@@ -47,17 +47,18 @@ puts rulebook.next_state(1 , 'a')
 puts rulebook.next_state(1 , 'b')
 puts rulebook.next_state(2 , 'b')
 
-# Read character
+puts; puts "Read character"
 dfa = DFA.new(1, [3], rulebook); puts dfa.accepting?
 dfa.read_char('b'); puts dfa.accepting?
 3.times { dfa.read_char('a') }; puts dfa.accepting?
 dfa.read_char('b'); puts dfa.accepting?
 
-# Read string
+puts; puts "Read string"
 dfa = DFA.new(1, [3], rulebook); puts dfa.accepting?
 dfa.read_string("baab"); puts dfa.accepting?
 
 # Creates a new DFA each time
+puts; puts "DFA Auto"
 dfa_design = DFADesign.new(1, [3], rulebook)
 puts dfa_design.accepts?('a')
 puts dfa_design.accepts?("baa")
