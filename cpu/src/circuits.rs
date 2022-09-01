@@ -33,12 +33,12 @@ fn one_bit_adder(a: Bit, b: Bit, carry_in: Bit) -> (Bit, Bit) {
     (sum2, carry_out)
 }
 
-fn four_bit_adder(a: Vec<Bit>, b: Vec<Bit>) -> (Vec<Bit>, Bit) {
-    let mut sum = vec![false, false, false, false];
+fn m_bit_adder(bits: usize, a: Vec<Bit>, b: Vec<Bit>) -> (Vec<Bit>, Bit) {
+    let mut sum = vec![false; bits];
     let mut carry_over = false;
     let matched_bits: Vec<(&Bit, &Bit)> = a.iter().zip(b.iter()).collect();
 
-    for idx in (0..4).rev() {
+    for idx in (0..bits).rev() {
         let (&a_bit, &b_bit) = matched_bits[idx];
         let result = one_bit_adder(a_bit, b_bit, carry_over);
         sum[idx] = result.0;
@@ -60,20 +60,29 @@ fn two_way_mux(a: Bit, b: Bit, select: Bit) -> Bit {
 
 fn m_bit_two_way_mux(a: Vec<Bit>, b: Vec<Bit>, select: Bit) -> Vec<Bit> {
     let matched_bits: Vec<(&Bit, &Bit)> = a.iter().zip(b.iter()).collect();
-    let mut bytes = Vec::with_capacity(matched_bits.capacity());
+    let mut bits = Vec::with_capacity(matched_bits.capacity());
     for (&a_bit, &b_bit) in matched_bits {
-        bytes.push(two_way_mux(a_bit, b_bit, select));
+        bits.push(two_way_mux(a_bit, b_bit, select));
     }
-    bytes
+    bits
 }
 
-// This ALU (arithmetic logic unit) has two operations:
-//     EQUALS op code is 0 (false)
-//     ADD op code is 1 (true)
-pub fn four_bit_alu(code: Bit, a: Vec<Bit>, b: Vec<Bit>) -> Vec<Bit> {
-    let (sum, _) = four_bit_adder(a.clone(), b.clone());
-    let equal = vec![false, false, false, m_bit_equals(a, b)];
-    m_bit_two_way_mux(sum, equal, code)
+const BITS: usize = 8;
+
+// This BITS-bit ALU (arithmetic logic unit) has two operations:
+//     EQUALS - opcode is 0 (false)
+//     ADD - opcode is 1 (true)
+// All operations' circuits are executed, but only one is returned based on opcode
+pub fn alu(opcode: Bit, a: Vec<Bit>, b: Vec<Bit>) -> Vec<Bit> {
+    // ADD
+    let (sum, _) = m_bit_adder(BITS, a.clone(), b.clone());
+
+    // EQUAL
+    let mut equal = vec![false; BITS];
+    equal[BITS - 1] = m_bit_equals(a, b);
+
+    // choose which circuit value to return
+    m_bit_two_way_mux(sum, equal, opcode)
 }
 
 #[cfg(test)]
@@ -81,24 +90,60 @@ mod tests {
     use super::*;
 
     #[test]
-    fn four_bit_alu_equality() {
-        let b1 = vec![false, false, true, true];
-        let b2 = vec![false, true, false, true];
-        assert_eq!(
-            four_bit_alu(false, b1, b2),
-            vec![false, false, false, false]
-        );
-
-        let b1 = vec![false, true, true, true];
-        let b2 = vec![false, true, true, true];
-        assert_eq!(four_bit_alu(false, b1, b2), vec![false, false, false, true]);
+    fn eight_bit_adder_works_with_carry_over() {
+        //     1000 0000
+        // +   1100 0000
+        // = 1 0100 0000
+        let b1 = vec![true, false, false, false, false, false, false, false];
+        let b2 = vec![true, true, false, false, false, false, false, false];
+        let b3 = vec![false, true, false, false, false, false, false, false];
+        assert_eq!(m_bit_adder(8, b1, b2), (b3, true));
     }
 
     #[test]
-    fn four_bit_alu_addition() {
-        let b1 = vec![false, false, true, true];
-        let b2 = vec![false, true, false, true];
-        assert_eq!(four_bit_alu(true, b1, b2), vec![true, false, false, false]);
+    fn eight_bit_adder_works_scenario1() {
+        //   0000 0111 ->  37
+        // + 0000 0001 ->  91
+        // = 0000 1000 -> 128
+        let b1 = vec![false, false, false, false, false, true, true, true];
+        let b2 = vec![false, false, false, false, false, false, false, true];
+        let b3 = vec![false, false, false, false, true, false, false, false];
+        assert_eq!(m_bit_adder(8, b1, b2), (b3, false));
+    }
+
+    #[test]
+    fn eight_bit_adder_works_without_carry_over() {
+        //   0010 0101 ->  37
+        // + 0101 1011 ->  91
+        // = 1000 0000 -> 128
+        let b1 = vec![false, false, true, false, false, true, false, true];
+        let b2 = vec![false, true, false, true, true, false, true, true];
+        let b3 = vec![true, false, false, false, false, false, false, false];
+        assert_eq!(m_bit_adder(8, b1, b2), (b3, false));
+    }
+
+    #[test]
+    fn alu_equality() {
+        let b1 = vec![false, false, true, true, false, false, false, false];
+        let b2 = vec![false, true, false, true, false, false, false, false];
+        assert_eq!(alu(false, b1, b2), vec![false; BITS]);
+
+        let b1 = vec![false, true, true, true, false, false, false, false];
+        let b2 = vec![false, true, true, true, false, false, false, false];
+        assert_eq!(
+            alu(false, b1, b2),
+            vec![false, false, false, false, false, false, false, true]
+        );
+    }
+
+    #[test]
+    fn alu_addition() {
+        let b1 = vec![false, false, true, true, false, false, false, false];
+        let b2 = vec![false, true, false, true, false, false, false, false];
+        assert_eq!(
+            alu(true, b1, b2),
+            vec![true, false, false, false, false, false, false, false]
+        );
     }
 
     #[test]
@@ -139,7 +184,7 @@ mod tests {
         let b1 = vec![true, false, true, true];
         let b2 = vec![false, true, true, false];
         let b3 = vec![false, false, false, true];
-        assert_eq!(four_bit_adder(b1, b2), (b3, true));
+        assert_eq!(m_bit_adder(4, b1, b2), (b3, true));
     }
 
     #[test]
@@ -147,7 +192,7 @@ mod tests {
         let b1 = vec![false, false, true, true];
         let b2 = vec![false, true, true, false];
         let b3 = vec![true, false, false, true];
-        assert_eq!(four_bit_adder(b1, b2), (b3, false));
+        assert_eq!(m_bit_adder(4, b1, b2), (b3, false));
     }
 
     #[test]

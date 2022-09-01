@@ -22,11 +22,11 @@ fn nand_gate(a: Bit, b: Bit) -> Bit {
 
 fn m_bit_gate(gate: impl Fn(Bit, Bit) -> Bit, a: Vec<Bit>, b: Vec<Bit>) -> Vec<Bit> {
     let matched_bits: Vec<(&Bit, &Bit)> = a.iter().zip(b.iter()).collect();
-    let mut bytes = Vec::with_capacity(matched_bits.capacity());
+    let mut bits = Vec::with_capacity(matched_bits.capacity());
     for (&a_bit, &b_bit) in matched_bits {
-        bytes.push(gate(a_bit, b_bit));
+        bits.push(gate(a_bit, b_bit));
     }
-    bytes
+    bits
 }
 
 #[cfg(test)]
