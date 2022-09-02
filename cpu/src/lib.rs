@@ -1,7 +1,9 @@
 pub mod circuits;
 pub mod gates;
 
-pub fn binary_format(bits: Vec<gates::Bit>) -> String {
+use gates::Bit;
+
+pub fn binary_format(bits: Vec<Bit>) -> String {
     bits.iter()
         .map(|&bit| {
             if bit {

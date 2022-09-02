@@ -1,4 +1,5 @@
 use crate::gates::*;
+use std::collections::HashMap;
 
 /*
 * Logic circuits
@@ -85,9 +86,88 @@ pub fn alu(opcode: Bit, a: Vec<Bit>, b: Vec<Bit>) -> Vec<Bit> {
     m_bit_two_way_mux(sum, equal, opcode)
 }
 
+type Instruction = Vec<Vec<Bit>>;
+pub type RegisterFile = HashMap<u8, Vec<Bit>>;
+
+pub struct RAM {
+    memory: Vec<Instruction>,
+}
+
+impl RAM {
+    pub fn load(instructions: Vec<Instruction>) -> Self {
+        Self {
+            memory: instructions,
+        }
+    }
+
+    fn fetch(&self, address: usize) -> Instruction {
+        self.memory[address].clone()
+    }
+}
+
+/*
+* Encodings
+*   ADD = 0000
+*   RET = 0001
+*
+*   Reg0 = 0000
+*   Reg1 = 0001
+*   Reg2 = 0010
+*   Reg3 = 0011
+*/
+pub struct CPU {
+    ram: RAM,
+    program_counter: usize,
+    instruction_register: Instruction,
+    register_file: RegisterFile,
+}
+
+impl CPU {
+    pub fn new(ram: RAM, register_file: RegisterFile) -> Self {
+        Self {
+            ram,
+            register_file,
+            program_counter: 0,
+            instruction_register: Vec::new(),
+        }
+    }
+
+    pub fn run(&mut self) -> Vec<Bit> {
+        self.fetch();
+        // DECODE
+        // EXECUTE
+        // WRITE_BACK
+        vec![false, true, true, true]
+    }
+
+    pub fn fetch(&mut self) {
+        self.instruction_register = self.ram.fetch(self.program_counter);
+        self.program_counter += 1;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn setup_cpu() -> CPU {
+        let instructions = vec![vec![
+            vec![false; 4],
+            vec![false, false, false, true],
+            vec![false, false, true, false],
+            vec![false, false, false, true],
+        ]];
+        let ram = RAM::load(instructions);
+        CPU::new(ram, RegisterFile::new())
+    }
+
+    #[test]
+    fn cpu_fetches_instruction() {
+        let mut cpu = setup_cpu();
+        cpu.fetch();
+        assert_eq!(cpu.program_counter, 1);
+        assert_eq!(cpu.instruction_register, cpu.ram.fetch(0));
+    }
 
     #[test]
     fn eight_bit_adder_works_with_carry_over() {
