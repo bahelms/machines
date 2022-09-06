@@ -3,7 +3,7 @@ pub mod gates;
 
 use gates::Bit;
 
-pub fn binary_format(bits: Vec<Bit>) -> String {
+pub fn binary_format(bits: &[Bit]) -> String {
     bits.iter()
         .map(|&bit| {
             if bit {
@@ -14,4 +14,9 @@ pub fn binary_format(bits: Vec<Bit>) -> String {
         })
         .collect::<Vec<String>>()
         .join("")
+}
+
+fn bits_to_u8(bits: &[Bit]) -> u8 {
+    let binary = binary_format(bits);
+    u8::from_str_radix(&binary, 2).expect("Couldn't parse &[Bit] to usize")
 }

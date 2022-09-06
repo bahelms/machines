@@ -1,23 +1,38 @@
 use cpu::circuits::{RegisterFile, CPU, RAM};
 
 fn main() {
-    // let instructions = vec!["ADD Reg1 Reg2 Reg1", "RET Reg1"];
+    /*
+    Instructions
+
+    "ADD Reg1 Reg2 Reg1" - 0000 0001 0010 0001
+    false, false, false, true,
+    false, false, false, true,
+    false, false, true, false,
+    false, false, false, true,
+
+    "RET Reg1" - 0001 0001 0000 0000
+    false, false, false, true,
+    false, false, false, true,
+    false, false, false, false,
+    false, false, false, false,
+    */
     let instructions = vec![
-        vec![
-            vec![false; 4],
-            vec![false, false, false, true],
-            vec![false, false, true, false],
-            vec![false, false, false, true],
-        ],
-        vec![
-            vec![false, false, false, true],
-            vec![false, false, false, true],
-        ],
+        false, false, false, true, false, false, false, true, false, false, true, false, false,
+        false, false, true, false, false, false, true, false, false, false, true, false, false,
+        false, false, false, false, false, false,
     ];
     let memory = RAM::load(instructions);
+
+    // 8-bit registers
     let mut rf = RegisterFile::new();
-    rf.insert(1, vec![false, false, true, true]);
-    rf.insert(2, vec![false, true, false, false]);
+    rf.set(
+        1,
+        vec![false, false, false, false, false, false, true, true],
+    );
+    rf.set(
+        2,
+        vec![false, false, false, false, false, true, false, false],
+    );
 
     let mut cpu = CPU::new(memory, rf);
     let result = cpu.run();

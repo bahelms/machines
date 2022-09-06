@@ -1,4 +1,4 @@
-use crate::gates::*;
+use crate::{bits_to_u8, gates::*};
 use std::collections::HashMap;
 
 /*
@@ -86,22 +86,48 @@ pub fn alu(opcode: Bit, a: Vec<Bit>, b: Vec<Bit>) -> Vec<Bit> {
     m_bit_two_way_mux(sum, equal, opcode)
 }
 
-type Instruction = Vec<Vec<Bit>>;
-pub type RegisterFile = HashMap<u8, Vec<Bit>>;
+#[derive(Default)]
+pub struct RegisterFile {
+    registers: HashMap<u8, Vec<Bit>>,
+}
 
+impl RegisterFile {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn set(&mut self, register: u8, value: Vec<Bit>) {
+        self.registers.insert(register, value);
+    }
+
+    fn read(&self, reg1: u8, reg2: u8) -> (Vec<Bit>, Vec<Bit>) {
+        (
+            self.registers
+                .get(&reg1)
+                .expect("Nothing found in register")
+                .clone(),
+            self.registers
+                .get(&reg2)
+                .expect("Nothing found in register")
+                .clone(),
+        )
+    }
+}
+
+#[derive(Debug)]
 pub struct RAM {
-    memory: Vec<Instruction>,
+    memory: Vec<Bit>,
 }
 
 impl RAM {
-    pub fn load(instructions: Vec<Instruction>) -> Self {
+    pub fn load(instructions: Vec<Bit>) -> Self {
         Self {
             memory: instructions,
         }
     }
 
-    fn fetch(&self, address: usize) -> Instruction {
-        self.memory[address].clone()
+    fn fetch(&self, address: usize, size: usize) -> Vec<Bit> {
+        self.memory[address..size].to_vec()
     }
 }
 
@@ -114,11 +140,14 @@ impl RAM {
 *   Reg1 = 0001
 *   Reg2 = 0010
 *   Reg3 = 0011
+*
+* All instructions are 16-bits long
 */
 pub struct CPU {
     ram: RAM,
     program_counter: usize,
-    instruction_register: Instruction,
+    instruction_register: Vec<Bit>,
+    instruction_size: usize,
     register_file: RegisterFile,
 }
 
@@ -129,35 +158,59 @@ impl CPU {
             register_file,
             program_counter: 0,
             instruction_register: Vec::new(),
+            instruction_size: 16,
         }
     }
 
-    pub fn run(&mut self) -> Vec<Bit> {
+    // These steps would normally be driven by the clock
+    pub fn run(&mut self) -> u8 {
         self.fetch();
-        // DECODE
-        // EXECUTE
-        // WRITE_BACK
-        vec![false, true, true, true]
+        let (opcode, val1, val2, output) = self.decode();
+        let value = self.execute(opcode, val1, val2);
+        bits_to_u8(&self.write_back(value, output))
     }
 
     pub fn fetch(&mut self) {
-        self.instruction_register = self.ram.fetch(self.program_counter);
+        dbg!(&self.program_counter);
+        self.instruction_register = self.ram.fetch(self.program_counter, self.instruction_size);
         self.program_counter += 1;
+    }
+
+    pub fn decode(&self) -> (Bit, Vec<Bit>, Vec<Bit>, u8) {
+        // This is specific to the ADD instruction
+        let opcode = &self.instruction_register[0..4];
+        let reg1 = bits_to_u8(&self.instruction_register[4..8]);
+        let reg2 = bits_to_u8(&self.instruction_register[8..12]);
+        let output = bits_to_u8(&self.instruction_register[12..16]);
+        let (val1, val2) = self.register_file.read(reg1, reg2);
+
+        // opcode is one Bit because ALU only has two instructions
+        (opcode[3], val1, val2, output)
+    }
+
+    fn execute(&self, opcode: Bit, val1: Vec<Bit>, val2: Vec<Bit>) -> Vec<Bit> {
+        alu(opcode, val1, val2)
+    }
+
+    fn write_back(&mut self, value: Vec<Bit>, register: u8) -> Vec<Bit> {
+        self.register_file.set(register, value.clone());
+        value
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::circuits::*;
+
+    #[test]
+    fn bits_to_u8_works() {
+        let bits = vec![true, false, true, false, true];
+        let result = bits_to_u8(&bits);
+        assert_eq!(result, 21)
+    }
 
     fn setup_cpu() -> CPU {
-        let instructions = vec![vec![
-            vec![false; 4],
-            vec![false, false, false, true],
-            vec![false, false, true, false],
-            vec![false, false, false, true],
-        ]];
-        let ram = RAM::load(instructions);
+        let ram = RAM::load(vec![false; 16]);
         CPU::new(ram, RegisterFile::new())
     }
 
@@ -166,7 +219,7 @@ mod tests {
         let mut cpu = setup_cpu();
         cpu.fetch();
         assert_eq!(cpu.program_counter, 1);
-        assert_eq!(cpu.instruction_register, cpu.ram.fetch(0));
+        assert_eq!(cpu.instruction_register, cpu.ram.fetch(0, 16));
     }
 
     #[test]

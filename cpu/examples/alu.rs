@@ -14,5 +14,5 @@ fn main() {
     let a = vec![false, false, false, false, false, false, false, true];
     let b = vec![false, false, false, false, false, true, true, true];
     let add = alu(true, a, b);
-    println!("00000001 + 00000111 -> {:?}", cpu::binary_format(add));
+    println!("00000001 + 00000111 -> {:?}", cpu::binary_format(&add));
 }
